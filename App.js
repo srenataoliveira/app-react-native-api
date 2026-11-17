@@ -8,55 +8,68 @@ import {
   SafeAreaView 
 } from 'react-native';
 
-export default function App() {
-  // 1. Estados (memória temporária da tela)
-  const [usuarios, setUsuarios] = useState([]); // Guarda a lista vinda da API
-  const [carregando, setCarregando] = useState(true); // Controla a bolinha de carregamento
+// Coordenadas reais das cidades para consultar na API
+const CIDADES = [
+  { id: '1', nome: 'Recife - PE', lat: -8.0476, lon: -34.8770 },
+  { id: '2', nome: 'São Paulo - SP', lat: -23.5505, lon: -46.6333 },
+  { id: '3', nome: 'Rio de Janeiro - RJ', lat: -22.9068, lon: -43.1729 },
+  { id: '4', nome: 'Brasília - DF', lat: -15.7975, lon: -47.8919 },
+  { id: '5', nome: 'Curitiba - PR', lat: -25.4284, lon: -49.2733 },
+];
 
-  // 2. Função que busca os dados na internet (API)
-  const buscarDados = async () => {
+export default function App() {
+  const [climas, setClimas] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+
+  const buscarTemperaturas = async () => {
     try {
-      // Faz o pedido para a API pública
-      const resposta = await fetch('https://jsonplaceholder.typicode.com/users');
-      // Converte a resposta para o formato JSON (que o JavaScript entende)
-      const dados = await resposta.json();
-      // Salva os dados no nosso estado
-      setUsuarios(dados);
+      // Busca a temperatura real de todas as cidades da lista ao mesmo tempo
+      const requisicoes = CIDADES.map(async (cidade) => {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${cidade.lat}&longitude=${cidade.lon}&current_weather=true`;
+        const resposta = await fetch(url);
+        const dados = await resposta.json();
+
+        return {
+          id: cidade.id,
+          cidade: cidade.nome,
+          temperatura: dados.current_weather.temperature,
+          vento: dados.current_weather.windspeed,
+        };
+      });
+
+      const resultados = await Promise.all(requisicoes);
+      setClimas(resultados);
     } catch (erro) {
-      console.error('Erro ao buscar dados:', erro);
+      console.error('Erro ao buscar clima:', erro);
     } finally {
-      // Desliga a bolinha de carregamento, dando certo ou errado
       setCarregando(false);
     }
   };
 
-  // 3. useEffect: Executa a busca automaticamente assim que o app abre
   useEffect(() => {
-    buscarDados();
+    buscarTemperaturas();
   }, []);
 
-  // 4. Como cada item da lista será desenhado na tela
   const renderizarItem = ({ item }) => (
     <View style={estilos.cartao}>
-      <Text style={estilos.nome}>{item.name}</Text>
-      <Text style={estilos.info}>📧 {item.email}</Text>
-      <Text style={estilos.info}>🏙️ Cidade: {item.address.city}</Text>
-      <Text style={estilos.info}>🏢 Empresa: {item.company.name}</Text>
+      <View>
+        <Text style={estilos.cidade}>{item.cidade}</Text>
+        <Text style={estilos.vento}>💨 Vento: {item.vento} km/h</Text>
+      </View>
+      <Text style={estilos.temperatura}>{item.temperatura}°C</Text>
     </View>
   );
 
-  // 5. O que aparece na tela do celular
   return (
     <SafeAreaView style={estilos.container}>
-      <Text style={estilos.titulo}>Lista de Contatos (API)</Text>
+      <Text style={estilos.titulo}>Clima Agora (Tempo Real)</Text>
 
-      {/* Se ainda estiver carregando, mostra a rodinha girando. Senão, mostra a lista */}
       {carregando ? (
-        <ActivityIndicator size="large" color="#0066cc" style={{ marginTop: 50 }} />
+        <ActivityIndicator size="large" color="#0284c7" style={{ marginTop: 50 }} />
       ) : (
         <FlatList
-          data={usuarios}
-          keyExtractor={(item) => item.id.toString()}
+          data={climas}
+          keyExtractor={(item) => item.id}
           renderItem={renderizarItem}
           contentContainerStyle={estilos.lista}
         />
@@ -65,45 +78,49 @@ export default function App() {
   );
 }
 
-// 6. Estilização (CSS do React Native)
 const estilos = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f4f8',
+    backgroundColor: '#e0f2fe',
     paddingTop: 40,
   },
   titulo: {
     fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#1e293b',
-    marginBottom: 15,
+    color: '#0369a1',
+    marginBottom: 20,
   },
   lista: {
     paddingHorizontal: 16,
-    paddingBottom: 20,
   },
   cartao: {
     backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 10,
+    padding: 20,
+    borderRadius: 12,
     marginBottom: 12,
-    // Sombra leve
-    elevation: 3, 
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  nome: {
+  cidade: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#0f172a',
-    marginBottom: 6,
   },
-  info: {
+  vento: {
     fontSize: 14,
-    color: '#475569',
-    marginBottom: 2,
+    color: '#64748b',
+    marginTop: 4,
+  },
+  temperatura: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#0284c7',
   },
 });
